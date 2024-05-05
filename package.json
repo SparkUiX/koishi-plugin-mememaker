@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-mememaker",
   "description": "入典生成器（[点我查看预览图&使用方法](https://www.npmjs.com/package/koishi-plugin-mememaker)）",
-  "version": "1.0.3",
+  "version": "1.0.6",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -17,7 +17,9 @@
   "peerDependencies": {
     "koishi": "4.17.5"
   },
-  "service":{
-    "require":["canvas"]
+  "service": {
+    "require": [
+      "canvas"
+    ]
   }
 }
