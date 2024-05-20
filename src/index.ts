@@ -9,7 +9,7 @@ export const usage = `
 ## 如你所见，你可以使用 \`入典 <文字1>\` 来使用自动翻译API来翻译文字，也可以使用 \`入典 <文字1> -n <文字2>\` 来直接输入翻译后的文字
 ## 你可以在下方的配置项处选择翻译的语言
 `
-export const inject = ['canvas']
+export const inject = ['canvas','database']
 export const Config: Schema<Config> = Schema.object(
   {
     isSendTimes: Schema.boolean().default(true).description('这个开关用来确认是否向开发者反馈使用情况，自愿开启，可以用于鼓励开发者'),
@@ -32,9 +32,18 @@ export class RuDian {
     const image=await ctx.canvas.loadImage(imageURL)
     
         //@ts-ignore
-        const width=image.naturalWidth||image.width
+        let width = image.naturalWidth || image.width;
         //@ts-ignore
-        const height=image.naturalHeight|| image.height 
+        let height = image.naturalHeight || image.height;
+        
+        if (width < 300 ) {
+          height = Math.floor(300 * height / width);
+          width = 300;
+        } else if (height < 300) {
+          width = Math.floor(300 * width / height);
+          height = 300;
+        }
+
         const canvas=await ctx.canvas.createCanvas(width,height+width/10)
         const context=canvas.getContext('2d')
         context.filter='grayscale(100%)'
@@ -112,7 +121,49 @@ export class RuDian {
     return h.image(buffer, 'image/png');
   }
 }
+//创建数据库
+declare module "koishi" {
+  interface Tables {
+    rdTrans:RDTrans;
+  }
+}
+export interface RDTrans {
+  cnt: string;
+  jpt: string;
+  transtolanguage: Config['transtolanguage'];
+}
 export function apply(ctx: Context,config: Config) {
+  //创建数据库
+  ctx.database.extend('rdTrans', {
+    cnt: "string",
+    jpt: "string",
+    transtolanguage: "string"
+  }, {
+    primary: ['cnt','transtolanguage']
+  })
+  //获取翻译
+  async function rdTranslate(cnt: string, transtolanguage: string) {
+    let jpt = '';
+    // 数据库储存翻译，来提高下一次相同翻译内容时的调用速度
+    const trans = await ctx.database.get('rdTrans', { cnt , transtolanguage: config.transtolanguage });
+    if(trans.length === 0) {
+      let jpts;
+      try {
+        jpts = await ctx.http.get(
+          `https://api.jaxing.cc/v2/Translate/Tencent?SourceText=${cnt}&Target=${config.transtolanguage}`
+        );
+      } catch (error) {
+        return "获取翻译失败...";
+      }
+      jpt = jpts.data.Response.TargetText;
+      await ctx.database.create('rdTrans', { cnt, jpt, transtolanguage: config.transtolanguage });
+      console.log(jpts);
+    } else {
+      jpt = trans[0].jpt;
+    }
+    return jpt;
+  }
+
   async function PostTimedata(command: string,times: number) {
     if(!config.isSendTimes) return
     const url=`https://90008.top/KoiAPI/PluginsUse/${name}/koitime.php`
@@ -151,9 +202,7 @@ export function apply(ctx: Context,config: Config) {
           return '请使用正确的图片内容'
         }
         if(!options.istrans){
-          const jpts=await ctx.http.get(`https://api.jaxing.cc/v2/Translate/Tencent?SourceText=${cnt}&Target=${config.transtolanguage}`)
-          const jpt=jpts.data.Response.TargetText
-          console.log(jpts)
+          const jpt= await rdTranslate(cnt, config.transtolanguage);
           session.send(await rd.RDOne(imageURL as string, cnt, jpt))
         }else{
           session.send(await rd.RDOne(imageURL as string, cnt, options.istrans))
