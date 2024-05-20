@@ -21,6 +21,7 @@ export const Config: Schema<Config> = Schema.object(
     ]).role('radio').default('ja').description('这个选项用来选择翻译的语言')
   }
 )
+
 export class RuDian {
   ctx: Context
   constructor(ctx: Context){
@@ -29,66 +30,87 @@ export class RuDian {
   async RDOne(imageURL: string,cnt: string,jpt: string){//第一个 黑白 下方文字
     const ctx=this.ctx
     const image=await ctx.canvas.loadImage(imageURL)
-        
-        const width=image.naturalWidth
-        const height=image.naturalHeight
+    
+        //@ts-ignore
+        const width=image.naturalWidth||image.width
+        //@ts-ignore
+        const height=image.naturalHeight|| image.height 
         const canvas=await ctx.canvas.createCanvas(width,height+width/10)
         const context=canvas.getContext('2d')
         context.filter='grayscale(100%)'
         context.drawImage(image, 0, 0, width, height)
         context.filter='none'
         context.fillStyle = 'black';
-        context.fillRect(0, image.naturalHeight, width, width/10);
+        context.fillRect(0, height, width, width/10);
         // 添加文字
         context.font = `${6*width/100}px  Arial`//;
         context.fillStyle = 'white';
         context.textAlign='center'
         context.textBaseline='middle'
-        context.fillText(cnt, width/2, image.naturalHeight + width/25);
+        context.fillText(cnt, width/2, height + width/25);
         context.font = `${3*width/100}px Arial`// `;
-        context.fillText(jpt, width/2, image.naturalHeight + width/12);
+        context.fillText(jpt, width/2, height + width/12);
         const outputbuffer=await canvas.toBuffer('image/png')
         // console.log(outputbuffer)
         return h.image(outputbuffer,'image/png')
-  }/*
+  }
+  //这个是个没写完的功能
   async RDTwo(imageURL: string,cnt: string,jpt: string){//第二个 黑白 上方文字
     const ctx=this.ctx
     const image=await ctx.canvas.loadImage(imageURL)
-    const width=image.naturalWidth
-    const height=image.naturalHeight
+    //@ts-ignore
+    const width=image.width
+    //@ts-ignore
+    const height=image.height
+    console.log(width,height)
     const canvas=await ctx.canvas.createCanvas(width,height)
     const context=canvas.getContext('2d')
     context.drawImage(image, 0, 0, width, height);
-    const subtitleHeight = height * 3 / 4;
-    const gradientHeight = height / 4;
+    let captionHeight = width / 20;
+    let captionWidth = width / 2;
+    let captionX = width / 2 - captionWidth / 2; // 中心位置
+    let captionY = height - 2.2*captionHeight; // 4/5处
     
-    // Create a gradient for the subtitle background
-    const gradient = context.createLinearGradient(0, subtitleHeight, 0, subtitleHeight + gradientHeight);
-    console.log(gradient.hasOwnProperty('addColorStop')) 
-    gradient.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    // 创建一个渐变
+    let gradient = context.createLinearGradient(captionX, 0, captionX + captionWidth, 0);
+    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+    gradient.addColorStop(0.1, 'rgba(0,0,0,0.5)');
+    gradient.addColorStop(0.9, 'rgba(0,0,0,0.5)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
     
-    // Draw the subtitle background
+    // 设置渐变和模糊
     context.fillStyle = gradient;
-    context.fillRect(0, subtitleHeight, width, gradientHeight);
+    context.shadowColor = 'black';
+    context.shadowBlur = 100;
     
-    // Set the font for the subtitle
-    context.font = '30px Arial';
+    // 绘制字幕区域
+    context.fillRect(captionX, captionY, captionWidth, captionHeight);
+    context.shadowBlur = 0; // 清除模糊，以免影响后续的绘制
     context.fillStyle = 'white';
-    context.textAlign = 'center';
+    context.textAlign='center'
+    context.textBaseline='middle'
     
-    // Draw the first line of the subtitle
     const firstLine = cnt
     const secondLine = jpt
-    context.fillText(firstLine, width / 2, subtitleHeight + 40);
+    context.font = `${2*width/100}px Arial` //Arial
+    context.fillText(firstLine, width / 2, captionY+width/67);
     
-    // Draw the second line of the subtitle
-    context.fillText(secondLine, width / 2, subtitleHeight + 80);
-    
-    // Finally, export the canvas to an image
+    context.fillText(secondLine, width / 2,captionY + width/28);
+    let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    // let numNoisePoints = 100000;
+    // for(let i = 0; i < numNoisePoints; i++) {
+    //   let x = Math.random() * canvas.width;
+    //   let y = Math.random() * canvas.height;
+    //   context.fillStyle = 'rgba(128,128,128,' + Math.random() + ')';
+    //   context.fillRect(x, y, 1, 1);
+    // }
+    context.globalCompositeOperation = 'soft-light';
+    context.fillStyle = 'rgba(128,128,128,0.5)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    // context.putImageData(imageData, 0, 0);
     const buffer =await canvas.toBuffer('image/png');
     return h.image(buffer, 'image/png');
-  }*/
+  }
 }
 export function apply(ctx: Context,config: Config) {
   async function PostTimedata(command: string,times: number) {
@@ -97,7 +119,7 @@ export function apply(ctx: Context,config: Config) {
     const data = {"command":command,"times":times}
     try{
     const request=await ctx.http.post(url, data,{headers: {'Content-Type': 'application/json'}})
-    // console.log(request)
+    console.log(request)
     /*
     此方法用于统计用户使用情况，用户自愿开启，不会收集任何隐私信息
     */
@@ -105,19 +127,29 @@ export function apply(ctx: Context,config: Config) {
         console.log(e)
     }
   }
+  const rd=new RuDian(ctx)
   ctx.command('入典 <cnt>')
   .option('istrans','-n <jpt>')
     .action(async ({ session,options },cnt) => {
         let quotemessage: string | h[]
         let imageURL: string | Buffer | URL | ArrayBufferLike
+        let sessioncontent: string = session.content
         try{
         quotemessage = session.quote.content;
         imageURL = h.select(quotemessage, 'img').map(a =>a.attrs.src)[0]
         }catch(e){
-            console.log(e)
-            return '请引用正确的图片内容'
+            // console.log(e)
+            // return '请引用正确的图片内容'
+            imageURL=h.select(sessioncontent, 'img').map(a =>a.attrs.src)[0]
+            if(!imageURL){
+              session.send('请在30s内发送图片')
+              imageURL = h.select(await session.prompt(30000), 'img').map(a =>a.attrs.src)[0]
+              
+            }
         }
-        const rd=new RuDian(ctx)
+        if(!imageURL){
+          return '请使用正确的图片内容'
+        }
         if(!options.istrans){
           const jpts=await ctx.http.get(`https://api.jaxing.cc/v2/Translate/Tencent?SourceText=${cnt}&Target=${config.transtolanguage}`)
           const jpt=jpts.data.Response.TargetText
@@ -129,7 +161,7 @@ export function apply(ctx: Context,config: Config) {
         await PostTimedata('入典',1)
         return
     })
-    /*ctx.command('入典2 <cnt> <jpt>')
+    ctx.command('入典2 <cnt> <jpt>')
     .action(async ({ session },cnt,jpt) => {
         let quotemessage: string | h[]
         let imageURL: string | Buffer | URL | ArrayBufferLike
@@ -140,8 +172,9 @@ export function apply(ctx: Context,config: Config) {
             console.log(e)
             return '请引用正确的图片内容'
         }
-        const rd=new RuDian(ctx)
+        // const rd=new RuDian(ctx)
         session.send(await rd.RDTwo(imageURL as string, cnt, jpt))
+        await PostTimedata('入典2',1)
         return
-    })*/
+    })
 }
