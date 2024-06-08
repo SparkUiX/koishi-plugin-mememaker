@@ -14,7 +14,10 @@ export const usage = `
 ## 如你所见，你可以使用 \`入典 <文字1>\` 来使用自动翻译API来翻译文字，也可以使用 \`入典 <文字1> -n <文字2>\` 来直接输入翻译后的文字
 ## 你可以在下方的配置项处选择翻译的语言
 `;
-export const inject = ["canvas", "database"];
+export const inject = {
+  required: ["database", "canvas"],
+};
+
 export const Config: Schema<Config> = Schema.object({
   isSendTimes: Schema.boolean()
     .default(true)
@@ -141,12 +144,12 @@ export class RuDian {
   }
 
   //获取翻译
-  async translate(cnt: string, lang:Config["transtolanguage"] = "ja") {
+  async translate(cnt: string, lang: Config["transtolanguage"] = "ja") {
     let jpt = "";
     // 数据库储存翻译，来提高下一次相同翻译内容时的调用速度
     const trans = await this.ctx.database.get("rdTrans", {
       cnt,
-      transtolanguage: lang
+      transtolanguage: lang,
     });
     if (trans.length === 0) {
       let jpts;
@@ -155,6 +158,7 @@ export class RuDian {
           `https://api.jaxing.cc/v2/Translate/Tencent?SourceText=${cnt}&Target=${lang}`
         );
       } catch (error) {
+        logger.info(error);
         return "获取翻译失败...";
       }
       jpt = jpts.data.Response.TargetText;
@@ -163,7 +167,6 @@ export class RuDian {
         jpt,
         transtolanguage: lang,
       });
-      console.log(jpts);
     } else {
       jpt = trans[0].jpt;
     }
@@ -203,68 +206,78 @@ export function apply(ctx: Context, config: Config) {
       const request = await ctx.http.post(url, data, {
         headers: { "Content-Type": "application/json" },
       });
-      console.log(request);
+      if (config.loggerinfo) {
+        logger.info(`数据统计： ` + request);
+      }
       /**
        * 此方法用于统计用户使用情况，用户自愿开启，不会收集任何隐私信息
        */
     } catch (e) {
-      console.log(e);
+      logger.info(e);
     }
   }
   const rd = new RuDian(ctx);
-  ctx.command("入典 <...cnt>").option("istrans", "-n <jpt>")
-  .action(async ({ session, options }, ...cntArr) => {
-    if (cntArr.length === 0) {
-      return "未输入标题！";
-    }
-    // 过滤
-    cntArr = cntArr.map((item) => {
-      if (item.includes("<") && item.includes(">") && item.includes("http")) {
-        return item.replace(/<.*?>/, ""); // 用空字符串替换被 < 和 > 包裹的内容
+  ctx
+    .command("入典 <...cnt>")
+    .option("istrans", "-n <jpt>")
+    .action(async ({ session, options }, ...cntArr) => {
+      if (cntArr.length === 0) {
+        return "未输入标题！";
       }
-      return item;
-    });
-
-    let quotemessage: string | h[];
-    let imageURL: string | Buffer | URL | ArrayBufferLike;
-    let sessioncontent: string = session.content;
-    try {
-      quotemessage = session.quote.content;
-      imageURL = h.select(quotemessage, "img").map((a) => a.attrs.src)[0];
-      if (config.loggerinfo && imageURL) {
-        logger.info("用户触发的内容为  " + cntArr);
-        logger.info("用户回复的内容为  " + quotemessage);
-      }
-    } catch (e) {
-      // console.log(e)
-      // return '请引用正确的图片内容'
-      imageURL = h.select(sessioncontent, "img").map((a) => a.attrs.src)[0];
-      if (!imageURL) {
-        session.send("请在30s内发送图片");
-        let usermessgae = await session.prompt(30000);
-        if (config.loggerinfo) {
-          logger.info("用户触发的内容为  " + cntArr);
-          logger.info("用户输入的内容为  " + usermessgae);
+      // 过滤
+      cntArr = cntArr.map((item) => {
+        if (item.includes("<") && item.includes(">") && item.includes("http")) {
+          return item.replace(/<.*?>/, ""); // 用空字符串替换被 < 和 > 包裹的内容
         }
+        return item;
+      });
 
-        imageURL = h.select(usermessgae, "img").map((a) => a.attrs.src)[0];
+      let quotemessage: string | h[];
+      let imageURL: string | Buffer | URL | ArrayBufferLike;
+      let sessioncontent: string = session.content;
+      try {
+        quotemessage = session.quote.content;
+        imageURL = h.select(quotemessage, "img").map((a) => a.attrs.src)[0];
+        if (config.loggerinfo && imageURL) {
+          logger.info("用户触发的内容为  " + cntArr);
+          logger.info("用户回复的内容为  " + quotemessage);
+        }
+      } catch (e) {
+        // console.log(e)
+        // return '请引用正确的图片内容'
+        imageURL = h.select(sessioncontent, "img").map((a) => a.attrs.src)[0];
+        if (!imageURL) {
+          session.send("请在30s内发送图片");
+          let usermessgae = await session.prompt(30000);
+          if (config.loggerinfo) {
+            logger.info("用户触发的内容为  " + cntArr);
+            logger.info("用户输入的内容为  " + usermessgae);
+          }
+
+          imageURL = h.select(usermessgae, "img").map((a) => a.attrs.src)[0];
+        }
       }
-    }
-    if (!imageURL) {
-      return "请使用正确的图片内容";
-    }
+      if (!imageURL) {
+        return "请使用正确的图片内容";
+      }
 
-    const cnt = cntArr.join(" ");
+      const cnt = cntArr.join(" ");
 
-    if (!options.istrans) {
-      const jpt = await rd.translate(cnt,config.transtolanguage);
-      session.send(await rd.RDOne(imageURL as string, cnt, jpt));
-    } else {
-      session.send(await rd.RDOne(imageURL as string, cnt, options.istrans));
-    }
-    await PostTimedata("入典", 1);
-    return;
-  });
+      if (!options.istrans) {
+        const jpt = await rd.translate(cnt, config.transtolanguage);
+        if (config.loggerinfo) {
+          logger.info(`翻译返回内容为` + jpt);
+        }
+        session.send(await rd.RDOne(imageURL as string, cnt, jpt));
+      } else {
+        if (options.istrans.includes('<') && options.istrans.includes('>') && options.istrans.includes('http')) {
+          options.istrans = options.istrans.replace(/<.*?>/, ''); // 用空字符串替换被 < 和 > 包裹的内容
+      }
+        session.send(await rd.RDOne(imageURL as string, cnt, options.istrans));
+      }
+      await PostTimedata("入典", 1);
+      return;
+    });
 
   ctx.command("入典2 <cnt> <jpt>").action(async ({ session }, cnt, jpt) => {
     let quotemessage: string | h[];
