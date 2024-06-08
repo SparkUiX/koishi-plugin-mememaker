@@ -8,11 +8,28 @@ export interface Config {
   loggerinfo: boolean;
 }
 export const usage = `
-## ↓这里是效果图及使用方法
-![img](http://ninjas-get.000.pe/Assets/MMMakerPreview/preview2.png)
+---
+## 项目效果图
+
+
+<a href="https://www.npmjs.com/package/koishi-plugin-mememaker">
+    <img src="http://ninjas-get.000.pe/Assets/MMMakerPreview/preview2.png" height="400" width="400" alt="readme">
+</a>
+
 （究竟是谁在迫害[风切](/market?keyword=email:2536810643@qq.com)啊
-## 如你所见，你可以使用 \`入典 <文字1>\` 来使用自动翻译API来翻译文字，也可以使用 \`入典 <文字1> -n <文字2>\` 来直接输入翻译后的文字
-## 你可以在下方的配置项处选择翻译的语言
+
+---
+## 使用方法
+如你所见，你可以通过以下命令使用本插件：
+- 使用 自动翻译 来翻译文字：
+  \`\`\`
+  入典 <文字>
+  \`\`\`
+- 使用 \`-n\` 参数指定翻译后的文字：
+  \`\`\`
+  入典 <文字> -n <翻译的文字>
+  \`\`\`
+---
 `;
 export const inject = {
   required: ["database", "canvas"],
