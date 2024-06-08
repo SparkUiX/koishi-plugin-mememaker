@@ -36,9 +36,8 @@ export const Config: Schema<Config> = Schema.object({
 export class RuDian {
   ctx: Context;
   config: Config;
-  constructor(ctx: Context, config: Config) {
+  constructor(ctx: Context) {
     this.ctx = ctx;
-    this.config = config;
   }
   async RDOne(imageURL: string, cnt: string, jpt: string) {
     //第一个 黑白 下方文字
@@ -142,18 +141,18 @@ export class RuDian {
   }
 
   //获取翻译
-  async translate(config: Config, cnt: string) {
+  async translate(cnt: string, lang:Config["transtolanguage"] = "ja") {
     let jpt = "";
     // 数据库储存翻译，来提高下一次相同翻译内容时的调用速度
     const trans = await this.ctx.database.get("rdTrans", {
       cnt,
-      transtolanguage: config.transtolanguage,
+      transtolanguage: lang
     });
     if (trans.length === 0) {
       let jpts;
       try {
         jpts = await this.ctx.http.get(
-          `https://api.jaxing.cc/v2/Translate/Tencent?SourceText=${cnt}&Target=${config.transtolanguage}`
+          `https://api.jaxing.cc/v2/Translate/Tencent?SourceText=${cnt}&Target=${lang}`
         );
       } catch (error) {
         return "获取翻译失败...";
@@ -162,7 +161,7 @@ export class RuDian {
       await this.ctx.database.create("rdTrans", {
         cnt,
         jpt,
-        transtolanguage: config.transtolanguage,
+        transtolanguage: lang,
       });
       console.log(jpts);
     } else {
@@ -212,7 +211,7 @@ export function apply(ctx: Context, config: Config) {
       console.log(e);
     }
   }
-  const rd = new RuDian(ctx, config);
+  const rd = new RuDian(ctx);
   ctx.command("入典 <...cnt>").option("istrans", "-n <jpt>")
   .action(async ({ session, options }, ...cntArr) => {
     if (cntArr.length === 0) {
@@ -258,7 +257,7 @@ export function apply(ctx: Context, config: Config) {
     const cnt = cntArr.join(" ");
 
     if (!options.istrans) {
-      const jpt = await rd.translate(config, cnt);
+      const jpt = await rd.translate(cnt,config.transtolanguage);
       session.send(await rd.RDOne(imageURL as string, cnt, jpt));
     } else {
       session.send(await rd.RDOne(imageURL as string, cnt, options.istrans));
