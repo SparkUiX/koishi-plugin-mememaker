@@ -58,21 +58,21 @@ export class RuDian {
       height = 300;
     }
 
-    const canvas = await ctx.canvas.createCanvas(width, height + width / 10);
+    const canvas = await ctx.canvas.createCanvas(width, height + 0.1 * width);
     const context = canvas.getContext("2d");
     context.filter = "grayscale(100%)";
     context.drawImage(image, 0, 0, width, height);
     context.filter = "none";
     context.fillStyle = "black";
-    context.fillRect(0, height, width, width / 10);
+    context.fillRect(0, height, width, 0.1 * width);
     // 添加文字
-    context.font = `${(6 * width) / 100}px  Arial`; //;
+    context.font = `${0.06 * width}px  Arial`; //;
     context.fillStyle = "white";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(cnt, width / 2, height + width / 25);
+    context.fillText(cnt, width / 2, height + 0.04 * width);
     context.font = `${(3 * width) / 100}px Arial`; // `;
-    context.fillText(jpt, width / 2, height + width / 12);
+    context.fillText(jpt, width / 2, height + 0.0833 * width);
     const outputbuffer = await canvas.toBuffer("image/png");
     // console.log(outputbuffer)
     return h.image(outputbuffer, "image/png");
