@@ -9,7 +9,7 @@ export interface Config {
   cntWarpLength: number;
   jptWarpLength: number;
 }
-usage = `
+export const usage = `
 ---
 ## 项目效果图
 
@@ -67,7 +67,7 @@ export class RuDian {
     this.cntWarpLength = cntWarpLength;
     this.jptWarpLength = jptWarpLength;
   }
-  async RDOne(imageURL: string, cnt: string, jpt: string) {
+  async RDOne(imageURL: string, cnt: string, jpt: string = "") {
     //第一个 黑白 下方文字
     const ctx = this.ctx;
     const image = await ctx.canvas.loadImage(imageURL);
@@ -87,19 +87,19 @@ export class RuDian {
 
     // 按照换行分开后，大字12个字一行，小字20个字一行
     const cnts = cnt.split("\n").reduce((prev, curr) => {
-      const len = Math.ceil(curr.length / cntWarpLength);
+      const len = Math.ceil(curr.length / this.cntWarpLength);
       const arr = [];
       for (let i = 0; i < len; i++) {
-        arr.push(curr.slice(i * cntWarpLength, (i + 1) * cntWarpLength));
+        arr.push(curr.slice(i * this.cntWarpLength, (i + 1) * this.cntWarpLength));
       }
       return [...prev, ...arr];
     }, [] as string[]);
 
     const jpts = jpt.split("\n").reduce((prev, curr) => {
-      const len = Math.ceil(curr.length / jptWarpLength);
+      const len = Math.ceil(curr.length / this.jptWarpLength);
       const arr = [];
       for (let i = 0; i < len; i++) {
-        arr.push(curr.slice(i * jptWarpLength, (i + 1) * jptWarpLength));
+        arr.push(curr.slice(i * this.jptWarpLength, (i + 1) * this.jptWarpLength));
       }
       return [...prev, ...arr];
     }, [] as string[]);
