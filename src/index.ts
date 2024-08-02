@@ -6,6 +6,8 @@ export interface Config {
   isSendTimes: boolean;
   transtolanguage: "en" | "ja" | "ko";
   loggerinfo: boolean;
+  cntWarpLength: number;
+  jptWarpLength: number;
 }
 export const usage = `
 ---
@@ -31,6 +33,7 @@ export const usage = `
   \`\`\`
 ---
 `;
+
 export const inject = {
   required: ["database", "canvas"],
 };
@@ -51,15 +54,20 @@ export const Config: Schema<Config> = Schema.object({
     .default("ja")
     .description("这个选项用来选择翻译的语言"),
   loggerinfo: Schema.boolean().default(false).description("日志调试模式"),
+  cntWarpLength: Schema.number().default(12).description("大字每行字数"),
+  jptWarpLength: Schema.number().default(24).description("小字每行字数"),
 });
 
 export class RuDian {
   ctx: Context;
-  config: Config;
-  constructor(ctx: Context) {
+  cntWarpLength: number;
+  jptWarpLength: number;
+  constructor(ctx: Context, cntWarpLength, jptWarpLength) {
     this.ctx = ctx;
+    this.cntWarpLength = cntWarpLength;
+    this.jptWarpLength = jptWarpLength;
   }
-  async RDOne(imageURL: string, cnt: string, jpt: string) {
+  async RDOne(imageURL: string, cnt: string, jpt: string = "") {
     //第一个 黑白 下方文字
     const ctx = this.ctx;
     const image = await ctx.canvas.loadImage(imageURL);
@@ -77,98 +85,144 @@ export class RuDian {
       height = 300;
     }
 
-    const canvas = await ctx.canvas.createCanvas(width, height + 0.1 * width);
+    // 按照换行分开后，大字12个字一行，小字20个字一行
+    const cnts = cnt.split("\n").reduce((prev, curr) => {
+      const len = Math.ceil(curr.length / this.cntWarpLength);
+      const arr = [];
+      for (let i = 0; i < len; i++) {
+        arr.push(curr.slice(i * this.cntWarpLength, (i + 1) * this.cntWarpLength));
+      }
+      return [...prev, ...arr];
+    }, [] as string[]);
+
+    const jpts = jpt.split("\n").reduce((prev, curr) => {
+      const len = Math.ceil(curr.length / this.jptWarpLength);
+      const arr = [];
+      for (let i = 0; i < len; i++) {
+        arr.push(curr.slice(i * this.jptWarpLength, (i + 1) * this.jptWarpLength));
+      }
+      return [...prev, ...arr];
+    }, [] as string[]);
+
+    const textHeight = 0.06 * cnts.length + 0.03 * jpts.length;
+
+    const canvas = await ctx.canvas.createCanvas(
+      width,
+      height + (0.01 + textHeight) * width
+    );
     const context = canvas.getContext("2d");
     context.filter = "grayscale(100%)";
     context.drawImage(image, 0, 0, width, height);
     context.filter = "none";
     context.fillStyle = "black";
-    context.fillRect(0, height, width, 0.1 * width);
+    context.fillRect(0, height, width, (0.01 + textHeight) * width);
     // 添加文字
     context.font = `${0.06 * width}px  Arial`; //;
     context.fillStyle = "white";
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(cnt, width / 2, height + 0.04 * width);
-    context.font = `${(3 * width) / 100}px Arial`; // `;
-    context.fillText(jpt, width / 2, height + 0.0833 * width);
+    //context.fillText(cnt, width / 2, height + 0.04 * width);
+    cnts.forEach((cnt, index) => {
+      context.fillText(
+        cnt,
+        width / 2,
+        height + 0.01 * width + 0.03 * width + 0.06 * width * index
+      );
+    });
+    context.font = `${0.03 * width}px Arial`; // `;
+    //context.fillText(jpt, width / 2, height + 0.08 * width);
+    jpts.forEach((jpt, index) => {
+      context.fillText(
+        jpt,
+        width / 2,
+        height +
+          0.01 * width +
+          0.06 * cnts.length * width +
+          0.015 * width +
+          0.03 * width * index
+      );
+    });
     const outputbuffer = await canvas.toBuffer("image/png");
     // console.log(outputbuffer)
     return h.image(outputbuffer, "image/png");
   }
-  //这个是个没写完的功能
-  async RDTwo(imageURL: string, cnt: string, jpt: string) {
-    //第二个 黑白 上方文字
-    const ctx = this.ctx;
-    const image = await ctx.canvas.loadImage(imageURL);
-    //@ts-ignore
-    const width = image.width;
-    //@ts-ignore
-    const height = image.height;
-    console.log(width, height);
-    const canvas = await ctx.canvas.createCanvas(width, height);
-    const context = canvas.getContext("2d");
-    context.drawImage(image, 0, 0, width, height);
-    let captionHeight = width / 20;
-    let captionWidth = width / 2;
-    let captionX = width / 2 - captionWidth / 2; // 中心位置
-    let captionY = height - 2.2 * captionHeight; // 4/5处
+  // //这个是个没写完的功能
+  // async RDTwo(imageURL: string, cnt: string, jpt: string) {
+  //   //第二个 黑白 上方文字
+  //   const ctx = this.ctx;
+  //   const image = await ctx.canvas.loadImage(imageURL);
+  //   //@ts-ignore
+  //   const width = image.width;
+  //   //@ts-ignore
+  //   const height = image.height;
+  //   console.log(width, height);
+  //   const canvas = await ctx.canvas.createCanvas(width, height);
+  //   const context = canvas.getContext("2d");
+  //   context.drawImage(image, 0, 0, width, height);
+  //   let captionHeight = width / 20;
+  //   let captionWidth = width / 2;
+  //   let captionX = width / 2 - captionWidth / 2; // 中心位置
+  //   let captionY = height - 2.2 * captionHeight; // 4/5处
 
-    // 创建一个渐变
-    let gradient = context.createLinearGradient(
-      captionX,
-      0,
-      captionX + captionWidth,
-      0
-    );
-    gradient.addColorStop(0, "rgba(0,0,0,0)");
-    gradient.addColorStop(0.1, "rgba(0,0,0,0.5)");
-    gradient.addColorStop(0.9, "rgba(0,0,0,0.5)");
-    gradient.addColorStop(1, "rgba(0,0,0,0)");
+  //   // 创建一个渐变
+  //   let gradient = context.createLinearGradient(
+  //     captionX,
+  //     0,
+  //     captionX + captionWidth,
+  //     0
+  //   );
+  //   gradient.addColorStop(0, "rgba(0,0,0,0)");
+  //   gradient.addColorStop(0.1, "rgba(0,0,0,0.5)");
+  //   gradient.addColorStop(0.9, "rgba(0,0,0,0.5)");
+  //   gradient.addColorStop(1, "rgba(0,0,0,0)");
 
-    // 设置渐变和模糊
-    context.fillStyle = gradient;
-    context.shadowColor = "black";
-    context.shadowBlur = 100;
+  //   // 设置渐变和模糊
+  //   context.fillStyle = gradient;
+  //   context.shadowColor = "black";
+  //   context.shadowBlur = 100;
 
-    // 绘制字幕区域
-    context.fillRect(captionX, captionY, captionWidth, captionHeight);
-    context.shadowBlur = 0; // 清除模糊，以免影响后续的绘制
-    context.fillStyle = "white";
-    context.textAlign = "center";
-    context.textBaseline = "middle";
+  //   // 绘制字幕区域
+  //   context.fillRect(captionX, captionY, captionWidth, captionHeight);
+  //   context.shadowBlur = 0; // 清除模糊，以免影响后续的绘制
+  //   context.fillStyle = "white";
+  //   context.textAlign = "center";
+  //   context.textBaseline = "middle";
 
-    const firstLine = cnt;
-    const secondLine = jpt;
-    context.font = `${(2 * width) / 100}px Arial`; //Arial
-    context.fillText(firstLine, width / 2, captionY + width / 67);
+  //   const firstLine = cnt;
+  //   const secondLine = jpt;
+  //   context.font = `${(2 * width) / 100}px Arial`; //Arial
+  //   context.fillText(firstLine, width / 2, captionY + width / 67);
 
-    context.fillText(secondLine, width / 2, captionY + width / 28);
-    let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    // let numNoisePoints = 100000;
-    // for(let i = 0; i < numNoisePoints; i++) {
-    //   let x = Math.random() * canvas.width;
-    //   let y = Math.random() * canvas.height;
-    //   context.fillStyle = 'rgba(128,128,128,' + Math.random() + ')';
-    //   context.fillRect(x, y, 1, 1);
-    // }
-    context.globalCompositeOperation = "soft-light";
-    context.fillStyle = "rgba(128,128,128,0.5)";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    // context.putImageData(imageData, 0, 0);
-    const buffer = await canvas.toBuffer("image/png");
-    return h.image(buffer, "image/png");
-  }
+  //   context.fillText(secondLine, width / 2, captionY + width / 28);
+  //   let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  //   // let numNoisePoints = 100000;
+  //   // for(let i = 0; i < numNoisePoints; i++) {
+  //   //   let x = Math.random() * canvas.width;
+  //   //   let y = Math.random() * canvas.height;
+  //   //   context.fillStyle = 'rgba(128,128,128,' + Math.random() + ')';
+  //   //   context.fillRect(x, y, 1, 1);
+  //   // }
+  //   context.globalCompositeOperation = "soft-light";
+  //   context.fillStyle = "rgba(128,128,128,0.5)";
+  //   context.fillRect(0, 0, canvas.width, canvas.height);
+  //   // context.putImageData(imageData, 0, 0);
+  //   const buffer = await canvas.toBuffer("image/png");
+  //   return h.image(buffer, "image/png");
+  // }
 
-  //获取翻译
+  //将翻译存入数据库，在翻译相同内容时读取已有的翻译
   async translate(cnt: string, lang: Config["transtolanguage"] = "ja") {
     let jpt = "";
-    // 数据库储存翻译，来提高下一次相同翻译内容时的调用速度
-    const trans = await this.ctx.database.get("rdTrans", {
-      cnt,
-      transtolanguage: lang,
-    });
-    if (trans.length === 0) {
+
+    // 获取数据库中已有的翻译
+    const trans = (
+      await this.ctx.database.get("rdTrans", {
+        cnt,
+        transtolanguage: lang,
+      })
+    )[0];
+
+    if (!trans) {
       let jpts;
       try {
         jpts = await this.ctx.http.get(
@@ -185,7 +239,7 @@ export class RuDian {
         transtolanguage: lang,
       });
     } else {
-      jpt = trans[0].jpt;
+      jpt = trans.jpt;
     }
     return jpt;
   }
@@ -201,6 +255,7 @@ export interface RDTrans {
   jpt: string;
   transtolanguage: Config["transtolanguage"];
 }
+
 export function apply(ctx: Context, config: Config) {
   //创建数据库
   ctx.database.extend(
@@ -233,7 +288,7 @@ export function apply(ctx: Context, config: Config) {
       logger.info(e);
     }
   }
-  const rd = new RuDian(ctx);
+  const rd = new RuDian(ctx, config.cntWarpLength, config.jptWarpLength);
   ctx
     .command("入典 <...cnt>")
     .option("istrans", "-n <jpt>")
@@ -287,28 +342,32 @@ export function apply(ctx: Context, config: Config) {
         }
         session.send(await rd.RDOne(imageURL as string, cnt, jpt));
       } else {
-        if (options.istrans.includes('<') && options.istrans.includes('>') && options.istrans.includes('http')) {
-          options.istrans = options.istrans.replace(/<.*?>/, ''); // 用空字符串替换被 < 和 > 包裹的内容
-      }
+        if (
+          options.istrans.includes("<") &&
+          options.istrans.includes(">") &&
+          options.istrans.includes("http")
+        ) {
+          options.istrans = options.istrans.replace(/<.*?>/, ""); // 用空字符串替换被 < 和 > 包裹的内容
+        }
         session.send(await rd.RDOne(imageURL as string, cnt, options.istrans));
       }
       await PostTimedata("入典", 1);
       return;
     });
 
-  ctx.command("入典2 <cnt> <jpt>").action(async ({ session }, cnt, jpt) => {
-    let quotemessage: string | h[];
-    let imageURL: string | Buffer | URL | ArrayBufferLike;
-    try {
-      quotemessage = session.quote.content;
-      imageURL = h.select(quotemessage, "img").map((a) => a.attrs.src)[0];
-    } catch (e) {
-      console.log(e);
-      return "请引用正确的图片内容";
-    }
-    // const rd=new RuDian(ctx)
-    session.send(await rd.RDTwo(imageURL as string, cnt, jpt));
-    await PostTimedata("入典2", 1);
-    return;
-  });
+  // ctx.command("入典2 <cnt> <jpt>").action(async ({ session }, cnt, jpt) => {
+  //   let quotemessage: string | h[];
+  //   let imageURL: string | Buffer | URL | ArrayBufferLike;
+  //   try {
+  //     quotemessage = session.quote.content;
+  //     imageURL = h.select(quotemessage, "img").map((a) => a.attrs.src)[0];
+  //   } catch (e) {
+  //     console.log(e);
+  //     return "请引用正确的图片内容";
+  //   }
+  //   // const rd=new RuDian(ctx)
+  //   session.send(await rd.RDTwo(imageURL as string, cnt, jpt));
+  //   await PostTimedata("入典2", 1);
+  //   return;
+  // });
 }
