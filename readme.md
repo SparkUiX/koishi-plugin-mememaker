@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/koishi-plugin-mememaker?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-mememaker)
 
 ## 如你所见，↓这是预览效果
-![img](http://ninjas-get.000.pe/Assets/MMMakerPreview/preview2.png)
+![img](https://i0.hdslb.com/bfs/openplatform/8693f69a20af44cce0356d4a7584ea211aeb0487.png)
 
 ## 使用方法
 如你所见，你可以通过以下命令使用本插件：

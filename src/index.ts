@@ -1,6 +1,6 @@
 import { Context, Schema, h, Logger } from "koishi";
 const logger = new Logger("mememaker");
-import {} from "koishi-plugin-canvas";
+import { } from "koishi-plugin-canvas";
 export const name = "mememaker";
 export interface Config {
   isSendTimes: boolean;
@@ -14,9 +14,8 @@ export const usage = `
 ## 项目效果图
 
 
-<a href="https://www.npmjs.com/package/koishi-plugin-mememaker">
-    <img src="http://ninjas-get.000.pe/Assets/MMMakerPreview/preview2.png" height="400" width="400" alt="readme">
-</a>
+<img src="https://i0.hdslb.com/bfs/openplatform/8693f69a20af44cce0356d4a7584ea211aeb0487.png" height="400" width="400"  referrerpolicy="no-referrer" alt="readme">
+
 
 （究竟是谁在迫害[风切](/market?keyword=email:2536810643@qq.com)啊
 
@@ -136,10 +135,10 @@ export class RuDian {
         jpt,
         width / 2,
         height +
-          0.01 * width +
-          0.06 * cnts.length * width +
-          0.015 * width +
-          0.03 * width * index
+        0.01 * width +
+        0.06 * cnts.length * width +
+        0.015 * width +
+        0.03 * width * index
       );
     });
     const outputbuffer = await canvas.toBuffer("image/png");
@@ -226,13 +225,14 @@ export class RuDian {
       let jpts;
       try {
         jpts = await this.ctx.http.get(
-          `https://api.jaxing.cc/v2/Translate/Tencent?SourceText=${cnt}&Target=${lang}`
+          // `https://api.jaxing.cc/v2/Translate/Tencent?SourceText=${cnt}&Target=${lang}`
+          `https://suapi.net/api/text/translate?to=${lang}&text[]=${cnt}`
         );
       } catch (error) {
         logger.info(error);
         return "获取翻译失败...";
       }
-      jpt = jpts.data.Response.TargetText;
+      jpt = jpts.data[0].translations[0].text;
       await this.ctx.database.create("rdTrans", {
         cnt,
         jpt,
@@ -306,7 +306,7 @@ export function apply(ctx: Context, config: Config) {
 
       let quotemessage: string | h[];
       let imageURL: string | Buffer | URL | ArrayBufferLike;
-      let sessioncontent: string = session.content;
+      let sessioncontent: string = session.stripped.content;
       try {
         quotemessage = session.quote.content;
         imageURL = h.select(quotemessage, "img").map((a) => a.attrs.src)[0];
