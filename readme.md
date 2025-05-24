@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/koishi-plugin-mememaker?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-mememaker)
 
 ## 如你所见，↓这是预览效果
-![img](https://i0.hdslb.com/bfs/openplatform/8693f69a20af44cce0356d4a7584ea211aeb0487.png)
+![img](http://ninjas-get.000.pe/Assets/MMMakerPreview/preview2.png)
 
 ## 使用方法
 如你所见，你可以通过以下命令使用本插件：
@@ -53,7 +53,15 @@ export function apply(ctx: Context, config: Config) {
 <details>
 <summary>点击此处 查看更新日志</summary>
 
-- **1.0.17**    为入典图片生成增加了自适应（？）的换行功能
+- **1.0.23**    翻译API换了一个。
+
+- **1.0.22**    翻译API换了一个。输入语言不局限于中文，自定义输出翻译为别的语言。
+
+- **1.0.21**    翻译API寄了，换了一个。暂时只支持输入`中文`，输出翻译为别的语言。
+
+- **1.0.19**    优化README与控制台显示效果及说明文字（子规不要使用老版本开发了咪。。。）
+
+- **1.0.17**    适配后端翻译API的返回数据的结构改变
 
 - **1.0.16**    对被提交的尚未完成的功能进行了修复
 
